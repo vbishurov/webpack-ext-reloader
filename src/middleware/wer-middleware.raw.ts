@@ -8,7 +8,7 @@
 (function() {
   try {window} catch {var window: any;};
 
-  const injectionContext = this || window || {browser: null};
+  const injectionContext = this || window || chrome ? {browser: chrome} : {browser: null};
 
   (function() {
     `<%= polyfillSource %>`;
@@ -25,9 +25,9 @@
     SIGN_RELOAD,
     SIGN_RELOADED,
     SIGN_LOG,
-    SIGN_CONNECT,
+    SIGN_CONNECT
   } = signals;
-  const { RECONNECT_INTERVAL, SOCKET_ERR_CODE_REF } = config;
+  const { RECONNECT_INTERVAL, RECONNECT_ATTEMPT, SOCKET_ERR_CODE_REF } = config;
 
   const { runtime, tabs } = browser;
   const manifest = runtime.getManifest();
@@ -100,10 +100,20 @@
         "warn",
       );
 
+      let reconnectAttempts = 0;
       const intId = setInterval(() => {
         logger("Attempting to reconnect (tip: Check if Webpack is running)");
         const ws = new WebSocket(wsHost);
-        ws.onerror = () => logger(`Error trying to re-connect. Reattempting in ${RECONNECT_INTERVAL / 1000}s`, "warn");
+        ws.onerror = () => {
+          if (reconnectAttempts >= RECONNECT_ATTEMPT) {
+            logger(`Could not reconnect after ${RECONNECT_ATTEMPT} attempts. Stopping automatic retry. To restart reload the extension manually.`, "warn");
+            clearInterval(intId);
+          } else {
+            logger(`Error trying to re-connect. Reattempting in ${RECONNECT_INTERVAL / 1000}s`, "warn");
+          }
+
+          reconnectAttempts++;
+        }
         ws.addEventListener("open", () => {
           clearInterval(intId);
           logger("Reconnected. Reloading plugin");

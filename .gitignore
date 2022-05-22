@@ -3,6 +3,7 @@
 .bin/
 .tmp/
 .DS_STORE
+sample/dist/
 
 # Logs
 logs
